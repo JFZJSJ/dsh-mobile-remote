@@ -1,0 +1,12 @@
+# DSH 手机遥控台 —— 信任配置模板
+# 由一键安装.ps1 自动生成（自动替换 100.x.y.z 和 主机名.tailxxx.ts.net）
+# 手动修改时注意：!!js 表达式必须加双引号，否则 YAML 解析报错会导致应用无法启动！
+- id: web-runtime
+  config:
+    printUrl: true
+    surfaceContext: true
+    trustedHosts: !!js "[...(ctx.webStartup?.trustedHosts ?? []), '100.x.y.z', '主机名.tailxxx.ts.net']"
+
+- id: connection
+  config:
+    trustedHosts: !!js "[...(ctx.webRuntime?.trustedHosts ?? []), '100.x.y.z', '主机名.tailxxx.ts.net']"
