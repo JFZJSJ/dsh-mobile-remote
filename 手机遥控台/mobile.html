@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0f1115" />
+<link rel="manifest" href="/mobile-manifest.webmanifest" />
+<link rel="icon" type="image/png" href="/icon-192.png" />
+<link rel="apple-touch-icon" href="/icon-180.png" />
+<title>DSH 手机遥控台</title>
+<style>
+  :root { --bg:#0f1115; --card:#171a21; --line:#262b36; --fg:#e8eaf0; --dim:#8b93a7; --acc:#4f8cff; --ok:#34c759; --warn:#ffb020; --bad:#ff5f57; }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; }
+  body { background:var(--bg); color:var(--fg); font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; display:flex; flex-direction:column; }
+  header { padding:10px 14px calc(6px + env(safe-area-inset-top)); background:var(--card); border-bottom:1px solid var(--line); }
+  .row1 { display:flex; align-items:center; gap:8px; }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--dim); flex:none; }
+  .dot.run { background:var(--ok); box-shadow:0 0 8px var(--ok); animation:pulse 1.6s infinite; }
+  @keyframes pulse { 50% { opacity:.45; } }
+  h1 { font-size:16px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+  #wsbar { margin-top:6px; display:flex; align-items:center; gap:6px; background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:6px 10px; cursor:pointer; }
+  #wsbar .wst { flex:1; font-size:13.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #wsbar .wsp { color:var(--dim); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:45%; }
+  #wsbar .caret { color:var(--dim); flex:none; }
+  .tokens { margin-top:8px; }
+  .tbar { height:6px; background:var(--line); border-radius:3px; overflow:hidden; }
+  .tfill { height:100%; background:linear-gradient(90deg,#4f8cff,#7b5cff); border-radius:3px; transition:width .5s; }
+  .tinfo { display:flex; justify-content:space-between; font-size:11px; color:var(--dim); margin-top:4px; }
+  .tinfo b { color:var(--fg); font-weight:600; }
+  #banner { display:none; padding:8px 14px; font-size:13px; background:#2a2110; color:var(--warn); border-bottom:1px solid var(--line); }
+  #banner.show { display:block; }
+  #progress { padding:6px 14px; border-bottom:1px solid var(--line); font-size:12.5px; color:var(--dim); min-height:30px; background:#12151c; }
+  #progress .act { color:var(--fg); }
+  #progress .tool { display:inline-block; background:#1c2230; border:1px solid var(--line); border-radius:6px; padding:1px 7px; margin:2px 4px 2px 0; color:#9db8ff; font-size:12px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle; }
+  #chat { flex:1; overflow-y:auto; padding:12px 12px calc(12px + env(safe-area-inset-bottom)); scroll-behavior:smooth; }
+  .msg { margin:10px 0; max-width:88%; padding:9px 12px; border-radius:14px; font-size:14.5px; white-space:pre-wrap; word-break:break-word; }
+  .user { margin-left:auto; background:var(--acc); color:#fff; border-bottom-right-radius:4px; }
+  .ai { background:var(--card); border:1px solid var(--line); border-bottom-left-radius:4px; }
+  .ai .reason { color:var(--dim); font-size:12.5px; border-left:2px solid var(--line); padding-left:8px; margin:4px 0; }
+  .toolchip { font-size:12px; color:var(--dim); background:#161a23; border:1px solid var(--line); border-radius:8px; padding:4px 8px; margin:4px 0; display:flex; gap:6px; align-items:baseline; }
+  .toolchip .tn { color:#9db8ff; font-weight:600; flex:none; }
+  .sys { text-align:center; color:var(--dim); font-size:12px; margin:8px 0; }
+  .approval { text-align:center; color:var(--warn); font-size:12.5px; margin:6px 0; background:#241c0c; border:1px solid #4a3a12; border-radius:8px; padding:6px; }
+  #composer { display:flex; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); background:var(--card); border-top:1px solid var(--line); }
+  #approvalbar { display:none; padding:8px 12px 2px; background:var(--card); border-top:1px solid var(--line); }
+  #approvalbar.show { display:block; }
+  .tabbar { display:flex; background:var(--card); border-bottom:1px solid var(--line); }
+  .tab { flex:1; padding:10px 0; text-align:center; font-size:14px; color:var(--dim); cursor:pointer; border-bottom:2px solid transparent; }
+  .tab.on { color:var(--fg); border-bottom-color:var(--acc); font-weight:600; }
+  #diaryform { display:none; flex:1; overflow-y:auto; padding:12px 14px calc(12px + env(safe-area-inset-bottom)); }
+  .dlabel { font-size:12.5px; color:var(--dim); margin:10px 0 4px; }
+  .dfield { width:100%; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:9px 10px; font-size:14px; outline:none; }
+  .dfield:focus { border-color:var(--acc); }
+  textarea.dfield { min-height:150px; resize:vertical; line-height:1.6; }
+  #diarySubmit { width:100%; margin-top:14px; background:var(--acc); color:#fff; padding:12px 0; font-size:15.5px; }
+  .drow { display:flex; gap:8px; }
+  .drow .dcol { flex:1; }
+  .apprcard { background:#2a2110; border:1px solid #4a3a12; border-radius:12px; padding:10px 12px; margin-bottom:6px; }
+  .apprtitle { font-size:13.5px; font-weight:600; color:var(--warn); }
+  .apprdetail { font-size:12.5px; color:var(--dim); margin:4px 0 8px; word-break:break-word; }
+  .apprbtns { display:flex; gap:8px; }
+  .apprbtns button { flex:1; padding:11px 0; font-size:15px; }
+  .btn-allow { background:var(--ok); color:#06250c; }
+  .btn-reject { background:#3a2323; color:var(--bad); }
+  .apprdone { font-size:13px; color:var(--dim); text-align:center; padding:6px; }
+  #input { flex:1; min-height:42px; max-height:120px; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:12px; padding:10px 12px; font-size:15px; resize:none; outline:none; }
+  #input:focus { border-color:var(--acc); }
+  button { border:none; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer; }
+  #send { width:64px; background:var(--acc); color:#fff; }
+  #send:disabled { opacity:.45; }
+  #stop { width:64px; background:#3a2323; color:var(--bad); display:none; }
+  #sheetmask { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:20; display:none; }
+  #sheetmask.show { display:block; }
+  #sheet { position:fixed; left:0; right:0; bottom:0; z-index:21; background:var(--card); border-top:1px solid var(--line); border-radius:16px 16px 0 0; max-height:72vh; display:flex; flex-direction:column; transform:translateY(100%); transition:transform .22s ease; }
+  #sheet.show { transform:translateY(0); }
+  #sheethead { padding:12px 14px 6px; display:flex; align-items:center; }
+  #sheethead .st { flex:1; font-weight:600; }
+  #sheetclose { background:none; color:var(--dim); font-size:15px; padding:4px 8px; }
+  #sheetbody { overflow-y:auto; padding:0 10px 16px; }
+  .sec { margin-top:10px; font-size:12px; color:var(--dim); padding:0 4px; }
+  .row { display:flex; flex-direction:column; gap:2px; padding:9px 10px; border-radius:10px; cursor:pointer; border:1px solid transparent; }
+  .row:hover { background:#1d222c; }
+  .row.sel { background:#17233a; border-color:#2b4a80; }
+  .row .rn { font-size:14px; font-weight:600; }
+  .row .rm { font-size:11.5px; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .row .rrun { color:var(--ok); }
+  .newbtn { margin-top:8px; background:var(--bg); color:var(--acc); border:1px dashed #3a557f; border-radius:10px; padding:10px; font-size:13.5px; text-align:center; cursor:pointer; }
+  .newform { margin-top:8px; display:none; gap:6px; }
+  .newform.show { display:flex; }
+  .newform input { flex:1; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:9px 10px; font-size:13px; outline:none; }
+  .newform button { background:var(--acc); color:#fff; padding:9px 12px; font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="row1"><span class="dot" id="dot"></span><h1 id="title">连接中…</h1></div>
+  <div id="wsbar"><span class="wst" id="wstitle">—</span><span class="wsp" id="wspath"></span><span class="caret">▾</span></div>
+  <div class="tokens">
+    <div class="tbar"><div class="tfill" id="tfill" style="width:0%"></div></div>
+    <div class="tinfo"><span id="tused">Token：—</span><span id="tleft">剩余：—</span></div>
+  </div>
+</header>
+<div class="tabbar">
+  <div class="tab on" id="tabChat">💬 对话</div>
+  <div class="tab" id="tabDiary">✍️ 日记</div>
+</div>
+<div id="banner"></div>
+<div id="progress"></div>
+<div id="chat"></div>
+<div id="diaryform">
+  <div class="dlabel">日期（文件名用，如 9.2）</div>
+  <div class="drow">
+    <div class="dcol"><input class="dfield" id="diaryFile" placeholder="9.2" /></div>
+    <div class="dcol"><input class="dfield" id="diaryDate" placeholder="2026-09-02" /></div>
+  </div>
+  <div class="dlabel">标题</div>
+  <input class="dfield" id="diaryTitle" placeholder="9.2日记" />
+  <div class="dlabel">标签（逗号分隔）</div>
+  <input class="dfield" id="diaryTags" placeholder="生活,随笔" />
+  <div class="dlabel">摘要（首页卡片显示，可留空）</div>
+  <input class="dfield" id="diaryExcerpt" placeholder="一句话摘要" />
+  <div class="dlabel">正文（空行分段）</div>
+  <textarea class="dfield" id="diaryContent" placeholder="今天……"></textarea>
+  <button id="diarySubmit">📤 生成日记页面</button>
+</div>
+<div id="approvalbar"></div>
+<div id="composer">
+  <input id="input" type="text" placeholder="给电脑发指令…" autocomplete="off" enterkeyhint="send" />
+  <button id="send">发送</button>
+  <button id="stop">停止</button>
+</div>
+<div id="sheetmask"></div>
+<div id="sheet">
+  <div id="sheethead"><span class="st">项目与会话</span><button id="sheetclose">✕</button></div>
+  <div id="sheetbody"></div>
+</div>
+<script>
+"use strict";
+var WS = null, SID = null, lastSeq = -1, running = false, pending = false;
+var workspaces = [], sessionsById = {}, lastStreamAt = 0;
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]; }); }
+function rpcId() { return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : "m-" + Math.random().toString(36).slice(2) + Date.now(); }
+function fmt(n) { if (n == null) return "—"; if (n >= 1000000) return (n / 1000000).toFixed(1) + "M"; if (n >= 1000) return (n / 1000).toFixed(1) + "K"; return String(n); }
+function api(method, payload) {
+  return fetch("/api/" + method, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "client-request", rpcId: rpcId(), method: method, payload: payload || {} }) })
+    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(function (resp) {
+      if (!resp.result || !resp.result.ok) throw new Error((resp.result && resp.result.error && resp.result.error.message) || "RPC failed");
+      return resp.result.value;
+    });
+}
+function showBanner(t) { var b = $("banner"); if (t) { b.textContent = t; b.classList.add("show"); } else b.classList.remove("show"); }
+/* ---------- 手机审批 ---------- */
+var pendingApprovals = {};
+function approvalCardHTML(a) {
+  return '<div class="apprcard" id="appr-' + esc(a.approvalId) + '">'
+    + '<div class="apprtitle">🔐 电脑请求授权：' + esc(a.toolName || "操作") + '</div>'
+    + '<div class="apprdetail">' + esc(a.reason || "") + '</div>'
+    + '<div class="apprbtns">'
+    + '<button class="btn-allow" data-appr="' + esc(a.approvalId) + '" data-outcome="allowed-once">✅ 允许一次</button>'
+    + '<button class="btn-reject" data-appr="' + esc(a.approvalId) + '" data-outcome="rejected">❌ 拒绝</button>'
+    + '</div></div>';
+}
+function showApproval(a) {
+  pendingApprovals[a.approvalId] = a;
+  var bar = $("approvalbar");
+  bar.innerHTML = Object.keys(pendingApprovals).map(function (id) { return approvalCardHTML(pendingApprovals[id]); }).join("");
+  bar.classList.add("show");
+  bindApprovalButtons();
+}
+function bindApprovalButtons() {
+  Array.prototype.forEach.call(document.querySelectorAll("#approvalbar .apprbtns button"), function (b) {
+    if (b.__bound) return; b.__bound = true;
+    b.addEventListener("click", function () { respondApproval(b.getAttribute("data-appr"), b.getAttribute("data-outcome")); });
+  });
+}
+function respondApproval(approvalId, outcome) {
+  var a = pendingApprovals[approvalId];
+  if (!a) return;
+  var body = { type: "client-response", rpcId: a.rpcId, result: { ok: true, value: { sessionId: a.sessionId, approvalId: approvalId, outcome: outcome } } };
+  fetch("/api/respond", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    .then(function (r) { return r.json(); })
+    .then(function (receipt) {
+      if (receipt && receipt.accepted) markApprovalDone(approvalId, outcome === "allowed-once" ? "✅ 已允许（仅本次）" : "❌ 已拒绝");
+      else markApprovalDone(approvalId, "该请求已被处理或已过期");
+    })
+    .catch(function () { markApprovalDone(approvalId, "发送失败，请重试"); });
+}
+function markApprovalDone(approvalId, text) {
+  delete pendingApprovals[approvalId];
+  var el = document.getElementById("appr-" + approvalId);
+  if (el) el.innerHTML = '<div class="apprdone">' + esc(text) + "</div>";
+  var bar = $("approvalbar");
+  setTimeout(function () { if (!Object.keys(pendingApprovals).length) bar.classList.remove("show"); }, 2500);
+}
+function pickText(blocks) { var out = "", reason = ""; (blocks || []).forEach(function (blk) { if (blk.type === "text" && blk.text) out += blk.text; else if (blk.type === "reasoning" && blk.text) reason += blk.text; }); return { text: out, reason: reason }; }
+function argSummary(argsStr) { try { var o = JSON.parse(argsStr), ks = Object.keys(o); if (!ks.length) return ""; var v = o[ks[0]]; if (v && typeof v === "object") v = JSON.stringify(v); return " " + esc(String(v)).slice(0, 60); } catch (e) { return ""; } }
+function nearBottom() { var c = $("chat"); return c.scrollHeight - c.scrollTop - c.clientHeight < 140; }
+function scrollDown() { var c = $("chat"); c.scrollTop = c.scrollHeight; }
+function appendMsg(html) { $("chat").insertAdjacentHTML("beforeend", html); }
+var activity = [];
+function renderEvent(ev) {
+  if (ev.seq <= lastSeq) return;
+  lastSeq = ev.seq; lastStreamAt = Date.now();
+  var d = ev.data || {}, stick = nearBottom();
+  if (ev.type === "user/message") { var pt = pickText(d.content); appendMsg('<div class="msg user">' + esc(pt.text || "…") + "</div>"); }
+  else if (ev.type === "assistant/message") {
+    var ap = pickText((d.message || {}).content), h = '<div class="msg ai">';
+    if (ap.reason) h += '<div class="reason">💭 ' + esc(ap.reason.slice(0, 300)) + "</div>";
+    h += esc(ap.text) + "</div>"; appendMsg(h);
+  }
+  else if (ev.type === "tool/call") {
+    appendMsg('<div class="toolchip"><span class="tn">🔧 ' + esc(d.name) + "</span><span>" + argSummary(d.arguments) + "</span></div>");
+    activity.push({ name: d.name, args: argSummary(d.arguments) });
+  }
+  else if (ev.type === "approval/asked") { appendMsg('<div class="approval">⏳ 等待电脑上授权：' + esc(d.toolName || "操作") + "</div>"); }
+  else if (ev.type === "turn/end") { appendMsg('<div class="sys">✓ 本轮完成</div>'); activity = []; }
+  else if (ev.type === "turn/start") { appendMsg('<div class="sys">▶ 开始干活</div>'); activity = []; }
+  if (stick) scrollDown();
+}
+function renderActivity() {
+  if (activity.length) {
+    var acts = activity.slice(-4).map(function (a) { return '<span class="tool">' + esc(a.name) + a.args + "</span>"; }).join("");
+    $("progress").innerHTML = '<span class="act">🔧 正在执行：</span>' + acts;
+  } else {
+    $("progress").innerHTML = running ? '<span class="act">⏳ 思考中…</span>' : '<span class="act">空闲</span>';
+  }
+}
+function renderHeader(listItem) {
+  var pj = (listItem && listItem.projections && listItem.projections.values) || {};
+  var cp = pj.contextPressure || {}, stats = pj.sessionStats || {};
+  $("title").textContent = pj.title || "新会话";
+  $("dot").className = "dot" + (running ? " run" : "");
+  var ws = workspaces.find(function (w) { return w.workspaceId === WS; });
+  $("wstitle").textContent = ws ? (ws.title || ws.path) : "—";
+  $("wspath").textContent = ws ? ws.path : "";
+  var win = cp.contextWindow, proj = cp.projectedTokens;
+  if (win && proj != null) {
+    $("tfill").style.width = Math.min(100, Math.round(proj / win * 100)) + "%";
+    $("tused").innerHTML = "已用 <b>" + fmt(proj) + "</b> / " + fmt(win);
+    $("tleft").innerHTML = "剩余 <b>" + fmt(Math.max(0, win - proj)) + "</b>";
+  } else { $("tused").textContent = "Token：—"; $("tleft").textContent = "剩余：—"; }
+}
+function sessionsOfWs(wsId) { var ws = workspaces.find(function (w) { return w.workspaceId === wsId; }); return ws ? ws.sessionIds : []; }
+function pickSessionInWs(wsId, list) {
+  var ids = sessionsOfWs(wsId);
+  var items = (list.items || []).filter(function (s) { return ids.indexOf(s.sessionId) >= 0; });
+  if (!items.length) return null;
+  var run = items.filter(function (s) { return s.running; });
+  var pool = run.length ? run : items.filter(function (s) { return !s.blank; });
+  pool.sort(function (a, b) { return b.updatedAt - a.updatedAt; });
+  return pool[0] || items[0];
+}
+/* ---------- 实时流：WebSocket 只收新事件 ---------- */
+var mux = null;
+function openMux() {
+  if (mux && (mux.readyState === 0 || mux.readyState === 1)) return;
+  var proto = location.protocol === "https:" ? "wss:" : "ws:";
+  var s;
+  try { s = new WebSocket(proto + "//" + location.host + "/api/events.mux"); } catch (e) { setTimeout(openMux, 3000); return; }
+  mux = s;
+  s.onmessage = function (ev) {
+    var o; try { o = JSON.parse(ev.data); } catch (e) { return; }
+    var p = o.payload; if (!p) return;
+    if (p.type === "session/subscribed") { /* 基线，无需处理 */ }
+    else if (p.type === "session/event") { if (SID && p.sessionId === SID) renderEvent(p.event); }
+    else if (p.type === "approval/requested") { if (p.approvalId) showApproval({ rpcId: o.rpcId, sessionId: p.sessionId, approvalId: p.approvalId, toolName: p.toolName, reason: p.reason }); }
+    else if (p.type === "approval/resolved") { markApprovalDone(p.approvalId, "该请求已在别处处理"); }
+    else if (p.type === "question/requested") { if (SID && p.sessionId === SID) appendMsg('<div class="approval">❓ 电脑上有问题要问你（请到电脑上回答）</div>'); }
+  };
+  s.onclose = function () { mux = null; setTimeout(openMux, 3000); };
+  s.onerror = function () { try { s.close(); } catch (e) {} };
+}
+/* ---------- 历史：每个会话只拉一次 ---------- */
+var loadingHistory = false, historyFor = null;
+function loadHistory() {
+  if (!SID || loadingHistory) return;
+  loadingHistory = true;
+  historyFor = SID;
+  api("session.history", { sessionId: SID, maxMessages: 8 }).then(function (hist) {
+    (hist.events || []).forEach(function (entry) { renderEvent(entry.event); });
+    renderActivity();
+  }).catch(function () {}).then(function () { loadingHistory = false; });
+}
+/* ---------- 轻量轮询：状态/token/选择 ---------- */
+function sync() {
+  return api("session.list", {}).then(function (list) {
+    sessionsById = {}; (list.items || []).forEach(function (s) { sessionsById[s.sessionId] = s; });
+    if (!WS || !workspaces.some(function (w) { return w.workspaceId === WS; })) {
+      var runWs = workspaces.find(function (w) { return (list.items || []).some(function (s) { return s.running && w.sessionIds.indexOf(s.sessionId) >= 0; }); });
+      WS = (runWs || workspaces[0]) ? (runWs || workspaces[0]).workspaceId : null;
+    }
+    if (!WS) { $("title").textContent = "没有项目"; return; }
+    var want = SID;
+    if (!SID || !sessionsById[SID] || sessionsOfWs(WS).indexOf(SID) < 0) {
+      var pick = pickSessionInWs(WS, list);
+      want = pick ? pick.sessionId : null;
+    }
+    if (want !== SID) { SID = want; }
+    if (SID && historyFor !== SID) {
+      lastSeq = -1; $("chat").innerHTML = ""; activity = []; renderActivity();
+      loadHistory();
+    }
+    if (!SID) { $("title").textContent = "这个项目还没有会话"; running = false; renderHeader(null); renderSheet(); return; }
+    var cur = sessionsById[SID]; running = !!cur.running;
+    renderHeader(cur); renderActivity(); renderSheet();
+    /* 兜底：如果实时流没在推这个会话，慢速补拉一次 */
+    if (running && Date.now() - lastStreamAt > 8000) loadHistory();
+  }).catch(function (err) { showBanner("连接断开：" + err.message); });
+}
+/* ---------- 切换面板 ---------- */
+function renderSheet() {
+  var h = '<div class="sec">📁 项目（点按切换）</div>';
+  workspaces.forEach(function (w) {
+    h += '<div class="row' + (w.workspaceId === WS ? " sel" : "") + '" data-wsid="' + esc(w.workspaceId) + '">'
+      + '<div class="rn">' + esc(w.title || w.path) + '</div>'
+      + '<div class="rm">' + esc(w.path) + " · " + w.sessionIds.length + " 个会话</div></div>";
+  });
+  h += '<div class="newbtn" id="btnNewWs">＋ 新建项目（输入电脑上的文件夹路径）</div>';
+  h += '<div class="newform" id="formNewWs"><input id="inNewWs" placeholder="例如 D:\\myproject" /><button id="okNewWs">创建</button></div>';
+  h += '<div class="sec">💬 当前项目下的会话（点按切换）</div>';
+  var ids = sessionsOfWs(WS);
+  if (!ids.length) { h += '<div class="row"><div class="rm">这个项目还没有会话</div></div>'; }
+  ids.forEach(function (id) {
+    var s = sessionsById[id]; if (!s) return;
+    var pj = (s.projections && s.projections.values) || {};
+    h += '<div class="row' + (id === SID ? " sel" : "") + '" data-sid="' + esc(id) + '">'
+      + '<div class="rn">' + esc(pj.title || "新会话") + (s.running ? ' <span class="rrun">● 运行中</span>' : "") + '</div>'
+      + '<div class="rm">' + esc(id.slice(0, 20)) + "…</div></div>";
+  });
+  h += '<div class="newbtn" id="btnNewSes">＋ 在当前项目新建会话</div>';
+  $("sheetbody").innerHTML = h;
+  bindSheet();
+}
+function bindSheet() {
+  Array.prototype.forEach.call(document.querySelectorAll("#sheetbody .row[data-wsid]"), function (el) {
+    el.addEventListener("click", function () { selectWorkspace(el.getAttribute("data-wsid")); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("#sheetbody .row[data-sid]"), function (el) {
+    el.addEventListener("click", function () { selectSession(el.getAttribute("data-sid")); });
+  });
+  var bn = $("btnNewWs"); if (bn) bn.addEventListener("click", function () { $("formNewWs").classList.toggle("show"); });
+  var ok = $("okNewWs"); if (ok) ok.addEventListener("click", createWorkspace);
+  var bn2 = $("btnNewSes"); if (bn2) bn2.addEventListener("click", createSession);
+}
+function openSheet() { renderSheet(); $("sheetmask").classList.add("show"); $("sheet").classList.add("show"); }
+function closeSheet() { $("sheetmask").classList.remove("show"); $("sheet").classList.remove("show"); }
+function selectWorkspace(wsId) {
+  WS = wsId; SID = null; lastSeq = -1; $("chat").innerHTML = ""; activity = []; historyFor = null;
+  try { localStorage.setItem("mob-ws", wsId); } catch (e) {}
+  closeSheet(); sync();
+}
+function selectSession(sid) {
+  SID = sid; lastSeq = -1; $("chat").innerHTML = ""; activity = []; historyFor = null;
+  try { localStorage.setItem("mob-sid", sid); } catch (e) {}
+  closeSheet(); loadHistory(); sync();
+}
+function createWorkspace() {
+  var p = $("inNewWs").value.trim();
+  if (!p) return;
+  api("workspace.create", { path: p }).then(function (v) {
+    showBanner("项目已创建：" + v.workspace.title);
+    return sync();
+  }).catch(function (err) { showBanner("创建失败：" + err.message + "（路径必须在电脑上真实存在）"); });
+}
+function createSession() {
+  if (!WS) return;
+  api("session.create", { workspaceId: WS }).then(function (v) {
+    SID = v.sessionId; lastSeq = -1; $("chat").innerHTML = ""; activity = []; historyFor = null;
+    try { localStorage.setItem("mob-sid", v.sessionId); } catch (e) {}
+    showBanner("新会话已创建，发第一句话吧");
+    sync();
+  }).catch(function (err) { showBanner("创建会话失败：" + err.message); });
+}
+/* ---------- 发送 / 停止 ---------- */
+function send() {
+  var input = $("input"), text = input.value.trim();
+  if (!text || pending || !SID) return;
+  pending = true; $("send").disabled = true; $("stop").style.display = "block";
+  api("session.prompt", { sessionId: SID, mode: "queue", content: [{ type: "text", text: text }], clientTimeZone: (Intl.DateTimeFormat().resolvedOptions().timeZone) || "Asia/Shanghai" })
+    .then(function () { input.value = ""; /* 回声和后续进度都走实时流 */ })
+    .catch(function (err) { showBanner("发送失败：" + err.message); })
+    .then(function () { pending = false; $("send").disabled = false; $("stop").style.display = "none"; });
+}
+function stopAgent() {
+  if (!SID) return;
+  $("stop").disabled = true;
+  api("session.cancel", { sessionId: SID }).then(function () { showBanner("已发送停止指令"); })
+    .catch(function (err) { showBanner("停止失败：" + err.message); })
+    .then(function () { $("stop").disabled = false; });
+}
+$("send").addEventListener("click", send);
+$("stop").addEventListener("click", stopAgent);
+$("input").addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
+/* ---------- 日记 Tab ---------- */
+function todayParts() {
+  var d = new Date();
+  return { md: (d.getMonth() + 1) + "." + d.getDate(), iso: d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0") };
+}
+function switchTab(tab) {
+  var chat = tab === "chat";
+  $("tabChat").className = "tab" + (chat ? " on" : "");
+  $("tabDiary").className = "tab" + (chat ? "" : " on");
+  $("chat").style.display = chat ? "" : "none";
+  $("progress").style.display = chat ? "" : "none";
+  $("composer").style.display = chat ? "" : "none";
+  $("diaryform").style.display = chat ? "none" : "block";
+  if (!chat) {
+    var t = todayParts();
+    if (!$("diaryFile").value) $("diaryFile").value = t.md;
+    if (!$("diaryDate").value) $("diaryDate").value = t.iso;
+    if (!$("diaryTitle").value) $("diaryTitle").value = t.md + "日记";
+    if (!$("diaryTags").value) $("diaryTags").value = "生活,随笔";
+  }
+}
+function submitDiary() {
+  var f = $("diaryFile").value.trim(), d = $("diaryDate").value.trim();
+  var t = $("diaryTitle").value.trim(), g = $("diaryTags").value.trim();
+  var x = $("diaryExcerpt").value.trim(), c = $("diaryContent").value.trim();
+  if (!c) { showBanner("正文不能为空"); return; }
+  if (!SID) { showBanner("请先在对话页选好会话"); return; }
+  var inst = "【日记发布】请用脚本发布以下日记，正文原样保留：\n"
+    + "脚本: node D:\\dsh\\site-tools\\new-post.js\n"
+    + "文件名: " + (f || todayParts().md) + "\n"
+    + "日期: " + (d || todayParts().iso) + "\n"
+    + "标题: " + (t || todayParts().md + "日记") + "\n"
+    + "标签: " + (g || "生活,随笔") + "\n"
+    + "摘要: " + (x || "") + "\n"
+    + "正文:\n" + c;
+  showBanner("已提交，电脑正在生成页面（需要授权时会弹出卡片）");
+  api("session.prompt", { sessionId: SID, mode: "queue", content: [{ type: "text", text: inst }], clientTimeZone: (Intl.DateTimeFormat().resolvedOptions().timeZone) || "Asia/Shanghai" })
+    .then(function () { $("diaryContent").value = ""; })
+    .catch(function (err) { showBanner("提交失败：" + err.message); });
+}
+$("tabChat").addEventListener("click", function () { switchTab("chat"); });
+$("tabDiary").addEventListener("click", function () { switchTab("diary"); });
+$("diarySubmit").addEventListener("click", submitDiary);
+$("wsbar").addEventListener("click", openSheet);
+$("sheetclose").addEventListener("click", closeSheet);
+$("sheetmask").addEventListener("click", closeSheet);
+/* ---------- 启动 ---------- */
+try { WS = localStorage.getItem("mob-ws") || null; SID = localStorage.getItem("mob-sid") || null; } catch (e) {}
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(function () { /* 非 HTTPS 或受限时静默失败 */ });
+}
+api("workspace.list", {}).then(function (v) { workspaces = v.items || []; return sync(); }).catch(function () {});
+openMux();
+setInterval(function () { sync().catch(function () {}); }, 3000);
+</script>
+</body>
+</html>
