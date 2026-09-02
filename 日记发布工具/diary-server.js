@@ -28,9 +28,12 @@ function json(res, code, obj) {
 }
 
 http.createServer(async (req, res) => {
+  const url = req.url || '';
+  const isHealth = url === '/health' || url.endsWith('/health');
+  const isNewPost = url === '/new-post' || url.endsWith('/new-post');
   if (req.method === 'OPTIONS') { json(res, 204, {}); return; }
-  if (req.method === 'GET' && req.url === '/health') { json(res, 200, { ok: true, time: Date.now() }); return; }
-  if (req.method === 'POST' && req.url === '/new-post') {
+  if (req.method === 'GET' && isHealth) { json(res, 200, { ok: true, time: Date.now() }); return; }
+  if (req.method === 'POST' && isNewPost) {
     let body = '';
     req.on('data', (c) => (body += c));
     req.on('end', async () => {
