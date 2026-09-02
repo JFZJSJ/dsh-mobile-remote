@@ -138,7 +138,7 @@
 <script>
 "use strict";
 var WS = null, SID = null, lastSeq = -1, running = false, pending = false;
-var workspaces = [], sessionsById = {}, lastStreamAt = 0;
+var workspaces = [], sessionsById = {}, archivedSessions = {}, lastStreamAt = 0;
 function $(id) { return document.getElementById(id); }
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]; }); }
 function rpcId() { return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : "m-" + Math.random().toString(36).slice(2) + Date.now(); }
@@ -244,7 +244,11 @@ function renderHeader(listItem) {
     $("tleft").innerHTML = "剩余 <b>" + fmt(Math.max(0, win - proj)) + "</b>";
   } else { $("tused").textContent = "Token：—"; $("tleft").textContent = "剩余：—"; }
 }
-function sessionsOfWs(wsId) { var ws = workspaces.find(function (w) { return w.workspaceId === wsId; }); return ws ? ws.sessionIds : []; }
+function sessionsOfWs(wsId) {
+  var ws = workspaces.find(function (w) { return w.workspaceId === wsId; });
+  if (!ws) return [];
+  return ws.sessionIds.filter(function (id) { return !archivedSessions[id]; });
+}
 function pickSessionInWs(wsId, list) {
   var ids = sessionsOfWs(wsId);
   var items = (list.items || []).filter(function (s) { return ids.indexOf(s.sessionId) >= 0; });
@@ -287,7 +291,10 @@ function loadHistory() {
 }
 /* ---------- 轻量轮询：状态/token/选择 ---------- */
 function sync() {
-  return api("session.list", {}).then(function (list) {
+  return Promise.all([api("workspace.list", {}), api("session.list", {})]).then(function (res) {
+    workspaces = res[0].items || [];
+    archivedSessions = {}; (res[0].archivedSessionIds || []).forEach(function (id) { archivedSessions[id] = 1; });
+    var list = res[1];
     sessionsById = {}; (list.items || []).forEach(function (s) { sessionsById[s.sessionId] = s; });
     if (!WS || !workspaces.some(function (w) { return w.workspaceId === WS; })) {
       var runWs = workspaces.find(function (w) { return (list.items || []).some(function (s) { return s.running && w.sessionIds.indexOf(s.sessionId) >= 0; }); });
@@ -317,7 +324,7 @@ function renderSheet() {
   workspaces.forEach(function (w) {
     h += '<div class="row' + (w.workspaceId === WS ? " sel" : "") + '" data-wsid="' + esc(w.workspaceId) + '">'
       + '<div class="rn">' + esc(w.title || w.path) + '</div>'
-      + '<div class="rm">' + esc(w.path) + " · " + w.sessionIds.length + " 个会话</div></div>";
+      + '<div class="rm">' + esc(w.path) + " · " + sessionsOfWs(w.workspaceId).length + " 个会话</div></div>";
   });
   h += '<div class="newbtn" id="btnNewWs">＋ 新建项目（输入电脑上的文件夹路径）</div>';
   h += '<div class="newform" id="formNewWs"><input id="inNewWs" placeholder="例如 D:\\myproject" /><button id="okNewWs">创建</button></div>';
