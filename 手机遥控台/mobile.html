@@ -428,19 +428,22 @@ function submitDiary() {
   var t = $("diaryTitle").value.trim(), g = $("diaryTags").value.trim();
   var x = $("diaryExcerpt").value.trim(), c = $("diaryContent").value.trim();
   if (!c) { showBanner("正文不能为空"); return; }
-  if (!SID) { showBanner("请先在对话页选好会话"); return; }
-  var inst = "【日记发布】请用脚本发布以下日记，正文原样保留：\n"
-    + "脚本: node D:\\dsh\\site-tools\\new-post.js\n"
-    + "文件名: " + (f || todayParts().md) + "\n"
-    + "日期: " + (d || todayParts().iso) + "\n"
-    + "标题: " + (t || todayParts().md + "日记") + "\n"
-    + "标签: " + (g || "生活,随笔") + "\n"
-    + "摘要: " + (x || "") + "\n"
-    + "正文:\n" + c;
-  showBanner("已提交，电脑正在生成页面（需要授权时会弹出卡片）");
-  api("session.prompt", { sessionId: SID, mode: "queue", content: [{ type: "text", text: inst }], clientTimeZone: (Intl.DateTimeFormat().resolvedOptions().timeZone) || "Asia/Shanghai" })
-    .then(function () { $("diaryContent").value = ""; })
-    .catch(function (err) { showBanner("提交失败：" + err.message); });
+  var payload = {
+    file: f || todayParts().md, date: d || todayParts().iso,
+    title: t || todayParts().md + "日记", tags: g || "生活,随笔",
+    excerpt: x, content: c
+  };
+  var btn = $("diarySubmit");
+  btn.disabled = true; btn.textContent = "发布中…";
+  showBanner("正在生成并发布，请稍候…");
+  fetch(location.protocol + "//" + location.hostname + ":3099/new-post", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+  }).then(function (r) { return r.json(); }).then(function (res) {
+    if (res.ok) { $("diaryContent").value = ""; showBanner("✅ " + (res.message || "已发布，1-2 分钟后网站可见")); }
+    else { showBanner("❌ " + res.message); }
+  }).catch(function () {
+    showBanner("❌ 日记服务未运行（电脑端 DeepSeek 需开着且日记服务已启动）");
+  }).then(function () { btn.disabled = false; btn.textContent = "📤 生成日记页面"; });
 }
 $("tabChat").addEventListener("click", function () { switchTab("chat"); });
 $("tabDiary").addEventListener("click", function () { switchTab("diary"); });
