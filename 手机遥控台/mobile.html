@@ -436,7 +436,7 @@ function submitDiary() {
   var btn = $("diarySubmit");
   btn.disabled = true; btn.textContent = "发布中…";
   showBanner("正在生成并发布，请稍候…");
-  fetch(location.protocol + "//" + location.hostname + ":3099/new-post", {
+  fetch(location.origin + "/diary-api/new-post", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
   }).then(function (r) { return r.json(); }).then(function (res) {
     if (res.ok) { $("diaryContent").value = ""; showBanner("✅ " + (res.message || "已发布，1-2 分钟后网站可见")); }
