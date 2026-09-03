@@ -83,7 +83,11 @@ ${body}
 </html>
 `;
 
-const postPath = path.join(SITE, 'posts', file + '.html');
+// 自动避免同名覆盖：如果 posts/<file>.html 已存在，自动加 -2/-3 后缀
+let outFile = file;
+let n = 2;
+while (fs.existsSync(path.join(SITE, 'posts', outFile + '.html'))) { outFile = file + '-' + n; n++; }
+const postPath = path.join(SITE, 'posts', outFile + '.html');
 fs.writeFileSync(postPath, html, 'utf8');
 console.log('POST WRITTEN:', postPath);
 
@@ -95,7 +99,7 @@ if (!index.includes(anchor)) {
   console.error('首页未找到插入锚点，请手动检查 index.html');
   process.exit(2);
 }
-const card = `        <a class="post-card" href="posts/${file}.html">
+const card = `        <a class="post-card" href="posts/${outFile}.html">
           <div class="post-meta">
             <span>${date}</span>
             <span class="dot"></span>
@@ -106,7 +110,7 @@ const card = `        <a class="post-card" href="posts/${file}.html">
 ${tagSpans}
           </div>
         </a>`;
-const fileEsc = String(file).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const fileEsc = String(outFile).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const cardRe = new RegExp('        <a class="post-card" href="posts/' + fileEsc + '\\.html">[\\s\\S]*?\\n        </a>');
 if (cardRe.test(index)) {
   index = index.replace(cardRe, card);
